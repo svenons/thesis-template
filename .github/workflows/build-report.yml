@@ -1,0 +1,178 @@
+name: Build report
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+    branches: [master]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: build-report-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: true
+
+      # Detect whether anything that affects diagram rendering changed.
+      # On PRs we use this to skip the expensive Mermaid/PlantUML steps when
+      # only `.tex` was touched; on push/dispatch we always render.
+      - name: Detect changed paths
+        id: changes
+        uses: dorny/paths-filter@v3
+        with:
+          filters: |
+            diagrams:
+              - 'assets/diagrams/**'
+              - 'scripts/render-diagrams.sh'
+              - 'package.json'
+
+      - name: Set render flag
+        id: render
+        run: |
+          if [ "${{ github.event_name }}" != 'pull_request' ] || \
+             [ "${{ steps.changes.outputs.diagrams }}" = 'true' ]; then
+            echo "needed=true"  >> "$GITHUB_OUTPUT"
+          else
+            echo "needed=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Set up Node.js
+        if: steps.render.outputs.needed == 'true'
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Cache npm registry tarballs
+        if: steps.render.outputs.needed == 'true'
+        uses: actions/cache@v4
+        with:
+          path: ~/.npm
+          key: npm-${{ runner.os }}-${{ hashFiles('package.json') }}
+          restore-keys: |
+            npm-${{ runner.os }}-
+
+      # mermaid-cli downloads ~150 MB of Chromium via Puppeteer on first run.
+      # Cache the download location so subsequent runs reuse it.
+      - name: Cache Puppeteer Chromium
+        if: steps.render.outputs.needed == 'true'
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/puppeteer
+          key: puppeteer-${{ runner.os }}-${{ hashFiles('package.json') }}
+          restore-keys: |
+            puppeteer-${{ runner.os }}-
+
+      - name: Install Chromium runtime deps and Graphviz
+        if: steps.render.outputs.needed == 'true'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            libnss3 libatk-bridge2.0-0 libxss1 libgbm1 \
+            libasound2t64 libpangocairo-1.0-0 libpango-1.0-0 \
+            libxcomposite1 libxdamage1 libxrandr2 libxkbcommon0 \
+            libdrm2 libcups2 fonts-liberation \
+            graphviz default-jre-headless
+
+      - name: Install mermaid-cli
+        if: steps.render.outputs.needed == 'true'
+        run: npm install --no-audit --no-fund
+
+      - name: Cache PlantUML jar
+        if: steps.render.outputs.needed == 'true'
+        uses: actions/cache@v4
+        with:
+          path: scripts/.build
+          key: plantuml-1.2024.8-jar
+          restore-keys: |
+            plantuml-
+
+      - name: Render diagrams
+        if: steps.render.outputs.needed == 'true'
+        run: |
+          chmod +x scripts/render-diagrams.sh
+          ./scripts/render-diagrams.sh
+
+      - name: Commit rendered diagrams (push events on master only)
+        if: github.event_name == 'push' && github.ref == 'refs/heads/master'
+        run: |
+          if [ -n "$(git status --porcelain assets/diagrams)" ]; then
+            git config user.name 'github-actions[bot]'
+            git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+            git add assets/diagrams
+            git commit -m "ci: render diagrams [skip ci]"
+            git push
+          else
+            echo 'No diagram changes to commit.'
+          fi
+
+      - name: Compile LaTeX
+        uses: xu-cheng/latex-action@v3
+        with:
+          root_file: main.tex
+          latexmk_use_xelatex: false
+          args: -pdf -file-line-error -interaction=nonstopmode
+
+      - name: Upload PDF artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: report-pdf
+          path: main.pdf
+          retention-days: 30
+
+      - name: Upload diagram PNGs artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: diagrams-png
+          path: assets/diagrams/**/*.png
+          retention-days: 30
+
+      - name: Bundle release assets (master push only)
+        if: github.event_name == 'push' && github.ref == 'refs/heads/master'
+        run: |
+          cp main.pdf bsc-proj-report.pdf
+          (cd assets && zip -r ../bsc-proj-report-diagrams.zip diagrams)
+
+      - name: Compute release identity (master push only)
+        id: ident
+        if: github.event_name == 'push' && github.ref == 'refs/heads/master'
+        run: |
+          DATE=$(date -u +'%Y-%m-%d')
+          SHORT_SHA=$(echo "${GITHUB_SHA}" | cut -c1-7)
+          TAG="report-${DATE}-${SHORT_SHA}"
+          NAME="Report build ${DATE} (${SHORT_SHA})"
+          {
+            echo "date=${DATE}"
+            echo "short_sha=${SHORT_SHA}"
+            echo "tag=${TAG}"
+            echo "name=${NAME}"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Publish versioned release (master push only)
+        if: github.event_name == 'push' && github.ref == 'refs/heads/master'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.ident.outputs.tag }}
+          name: ${{ steps.ident.outputs.name }}
+          body: |
+            Auto-generated build of `main.tex` from `master`.
+
+            - `bsc-proj-report.pdf` — compiled report.
+            - `bsc-proj-report-diagrams.zip` — all rendered Mermaid diagrams (`.png`).
+
+            Built from commit ${{ github.sha }} on ${{ github.event.head_commit.timestamp }}.
+          files: |
+            bsc-proj-report.pdf
+            bsc-proj-report-diagrams.zip
+          draft: false
+          prerelease: false
+          make_latest: true

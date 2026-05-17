@@ -1,0 +1,9 @@
+{
+  "name": "thesis-diagram-renderer",
+  "private": true,
+  "version": "0.0.0",
+  "description": "Pin for the Mermaid CLI used by scripts/render-diagrams.sh.",
+  "devDependencies": {
+    "@mermaid-js/mermaid-cli": "^11.4.0"
+  }
+}

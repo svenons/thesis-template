@@ -1,0 +1,15 @@
+%% Example: high-level system architecture
+flowchart LR
+    user([User])
+    web[Web frontend]
+    api[REST API]
+    worker[Background worker]
+    db[(Database)]
+    queue[[Message queue]]
+
+    user --> web
+    web --> api
+    api --> db
+    api --> queue
+    queue --> worker
+    worker --> db

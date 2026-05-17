@@ -1,0 +1,18 @@
+' Example: sequence diagram of a login flow (PlantUML).
+@startuml sequence-login
+skinparam shadowing false
+skinparam defaultFontName "DejaVu Sans"
+
+actor User
+participant "Web frontend" as Web
+participant "REST API" as API
+database "Database" as DB
+
+User -> Web : Enter credentials
+Web -> API : POST /login
+API -> DB : SELECT user by email
+DB --> API : User row + password hash
+API -> API : Verify password
+API --> Web : 200 OK + session token
+Web --> User : Redirect to dashboard
+@enduml

@@ -1,72 +1,78 @@
+% main.tex
 \documentclass[a4paper,oneside,11pt]{memoir}
 
-\usepackage[utf8]{inputenc} % input encoding
-\usepackage[T1]{fontenc} % font encoding
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
 
-\usepackage{graphicx} %to include images/graphics
-\usepackage{amsmath,amssymb} %better math type setting
-\usepackage{listings} %for source code snippets
-\usepackage{textcomp} %for upquote
-\usepackage{xcolor} % nice colors (for source code)
+\usepackage[margin=2.5cm]{geometry}
 
-\renewcommand{\ttdefault}{pcr} % nicer font for source code
+\usepackage[english]{babel}
+\usepackage[hidelinks]{hyperref}
 
-% an example configuration of the 'listings' package
-\lstset{basicstyle=\ttfamily, 
-        keywordstyle=\color{purple}\ttfamily,
-        commentstyle=\color{gray}\ttfamily,
-        stringstyle=\color{orange}\ttfamily,
-        captionpos=b,
-        float=tb,
-        upquote=true,
+\usepackage{graphicx}
+\usepackage{amsmath,amssymb}
+\usepackage{listings}
+\usepackage{textcomp}
+\usepackage{xcolor}
+
+\usepackage{float}
+\usepackage{booktabs}
+\usepackage{enumitem}
+
+\usepackage{lmodern}
+\usepackage{microtype}
+
+\renewcommand{\ttdefault}{pcr}
+
+\lstset{
+  basicstyle=\ttfamily,
+  keywordstyle=\color{purple}\ttfamily,
+  commentstyle=\color{gray}\ttfamily,
+  stringstyle=\color{orange}\ttfamily,
+  captionpos=b,
+  float=tb,
+  upquote=true,
 }
 
-\chapterstyle{tandh} % configuration of the 'memoir' class
+\chapterstyle{tandh}
 
-%
-% The actual document starts here
-%
 \begin{document}
 
-\input{frontpage}
+\input{plain/frontpage}
 
 \cleardoublepage
-
 \frontmatter
 
-\input{abstract}
+\input{plain/abstract}
 
 \cleardoublepage
+\input{plain/declaration-ai-usage}
 
+\cleardoublepage
+\input{plain/acknowledgements}
+
+\cleardoublepage
 \tableofcontents
 
+\cleardoublepage
+\listoffigures
+
+\cleardoublepage
+\listoftables
+
+\cleardoublepage
 \mainmatter
 
-%
-% We have one file per chapter:
-%
-
-% Introduction chapter in 'chap-introduction.tex'
-\input{chap-introduction}
-
-% Background chapter in 'chap-background.tex'
-\input{chap-background}
-
-% ...
-
-% Analysis and Design chapter in 'chap-analysis-and-design.tex'
-\input{chap-analysis-and-design}
-
-% Implementation chapter in 'chap-implementation.tex'
-\input{chap-implementation}
-
-% Conclusion chapter in 'chap-conclusion.tex'
-\input{chap-conclusion}
+\input{chapter/1-introduction}
+\input{chapter/2-background}
+\input{chapter/3-requirements}
+\input{chapter/4-design}
+\input{chapter/5-implementation}
+\input{chapter/6-development-process}
+\input{chapter/7-conclusion}
 
 \appendix
-
-% Appendix chapter in 'chap-appendix.tex'
-\input{chap-appendix}
+\input{appendix/1-appendix}
 
 \bibliographystyle{plain}
 \bibliography{mybibliography}
